@@ -43,7 +43,7 @@ class GoogleCloudStorage implements IStorage {
     constructor(config: IgscConfig, options: Ioptions) {
         options = options || {};
         if (!config || !config.projectId || !config.keyFilename) {
-            throw new Error("Configuration object is invalid, please verify that object has projectId and keyFilename fileds.");
+            throw new Error("Configuration object is invalid, please verify that object has `projectId` and `keyFilename` fields.");
         }
         this.bucket = options.bucket;
         this.storage = gcsstorage(config);
