@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "sourceMap": false,
+        "target": "es6"
+    },
+    "files": [
+        "typings/index.d.ts",
+        "index.ts",
+        "tests/main.spec.ts"
+    ]
+}

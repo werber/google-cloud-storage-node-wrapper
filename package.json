@@ -1,0 +1,27 @@
+{
+  "name": "google-cloud-strorage-node-wrapper",
+  "version": "0.0.1",
+  "description": "GCS wrapper for managing files.",
+  "main": "index.js",
+  "types": "./typings/index.d.ts",
+  "scripts": {
+    "test": "mocha ./tests/main.spec.js",
+    "test-watch": "mocha ./tests/main.spec.js --watch"
+  },
+  "author": "Kyrylo Gorbachov <kyrylo.gorbachov@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@google-cloud/storage": "^0.4.0",
+    "into-stream": "^3.0.0"
+  },
+  "engines" : {
+    "node" : ">=4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^6.0.48",
+    "buffer-equal": "1.0.0",
+    "chai": "^3.5.0",
+    "mocha": "3.2.0",
+    "request": "^2.79.0"
+  }
+}
