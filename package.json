@@ -1,5 +1,5 @@
 {
-  "name": "google-cloud-strorage-node-wrapper",
+  "name": "google-cloud-storage-node-wrapper",
   "version": "0.0.1",
   "description": "GCS wrapper for managing files.",
   "main": "index.js",
