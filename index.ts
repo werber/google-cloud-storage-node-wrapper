@@ -56,12 +56,6 @@ class GoogleCloudStorage implements IStorage {
       return this.storage.bucket(this.bucket).file(gcsPath);
     }
 
-    async read (gcsPath: string, writableStream: any): Promise<any> {
-      this.getRemoteFileInstance(gcsPath)
-          .createReadStream()
-          .pipe(writableStream);
-    }
-
     async list(prefix: string, queryOptions?: any): Promise<IFile[]> {
         let query = {
             prefix: prefix || "",
@@ -145,17 +139,34 @@ class GoogleCloudStorage implements IStorage {
         });
     }
 
+    async read (gcsPath: string, writableStream: any): Promise<any> {
+      return this.tryToDoOrFail(() => {
+        return this.readAsBuffer(gcsPath).then((buffer) => {
+          return new Promise ((resolve, reject) => {
+            intoStream(buffer)
+                    .pipe(writableStream)
+                    .on("finish", resolve)
+                    .on("error", reject);
+            });
+        });
+      });
+    }
+
     async readAsObject(gcsPath: string, options?: any): Promise<Object> {
+      return this.tryToDoOrFail(() => {
         return this.readAsBuffer(gcsPath, options).then((buffer) => {
             let json = buffer.toString("utf8");
             return JSON.parse(json);
         });
+      });
     }
 
     async readAsBuffer(gcsPath: string, options?: any): Promise<Buffer> {
+      return this.tryToDoOrFail(() => {
         return this.getRemoteFileInstance(gcsPath)
                    .download()
                    .then((data) => data[0]);
+      });
     }
 
     private async readableStreamToPromise(readableStream): Promise<any> {

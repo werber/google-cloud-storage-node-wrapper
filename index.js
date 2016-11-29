@@ -26,13 +26,6 @@ class GoogleCloudStorage {
     getRemoteFileInstance(gcsPath) {
         return this.storage.bucket(this.bucket).file(gcsPath);
     }
-    read(gcsPath, writableStream) {
-        return __awaiter(this, void 0, void 0, function* () {
-            this.getRemoteFileInstance(gcsPath)
-                .createReadStream()
-                .pipe(writableStream);
-        });
-    }
     list(prefix, queryOptions) {
         return __awaiter(this, void 0, void 0, function* () {
             let query = {
@@ -118,19 +111,37 @@ class GoogleCloudStorage {
             });
         });
     }
+    read(gcsPath, writableStream) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.tryToDoOrFail(() => {
+                return this.readAsBuffer(gcsPath).then((buffer) => {
+                    return new Promise((resolve, reject) => {
+                        intoStream(buffer)
+                            .pipe(writableStream)
+                            .on("finish", resolve)
+                            .on("error", reject);
+                    });
+                });
+            });
+        });
+    }
     readAsObject(gcsPath, options) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.readAsBuffer(gcsPath, options).then((buffer) => {
-                let json = buffer.toString("utf8");
-                return JSON.parse(json);
+            return this.tryToDoOrFail(() => {
+                return this.readAsBuffer(gcsPath, options).then((buffer) => {
+                    let json = buffer.toString("utf8");
+                    return JSON.parse(json);
+                });
             });
         });
     }
     readAsBuffer(gcsPath, options) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.getRemoteFileInstance(gcsPath)
-                .download()
-                .then((data) => data[0]);
+            return this.tryToDoOrFail(() => {
+                return this.getRemoteFileInstance(gcsPath)
+                    .download()
+                    .then((data) => data[0]);
+            });
         });
     }
     readableStreamToPromise(readableStream) {
