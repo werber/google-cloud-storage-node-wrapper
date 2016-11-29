@@ -84,7 +84,9 @@ class GoogleCloudStorage {
                 metadata: {
                     contentType: options.contentType || "application/json",
                     metadata: options.metadata || {}
-                }
+                },
+                resumable: false,
+                validation: "crc32c"
             };
             let urlToFile = (options.getURL) ? this.buildUrlToFile(gcsPath) : null;
             let rStream = this.transformToStream(data);
