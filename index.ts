@@ -14,9 +14,15 @@ interface IStorage {
     delete(gcsPath: string): Promise<any>;
 }
 
+interface IGCSCredentials {
+  client_email: string;
+  private_key: string;
+}
+
 interface IgscConfig {
-    projectId?: string;
+    projectId: string;
     keyFilename?: string;
+    credentials?: IGCSCredentials;
 }
 
 interface Ioptions {
@@ -42,8 +48,12 @@ class GoogleCloudStorage implements IStorage {
 
     constructor(config: IgscConfig, options: Ioptions) {
         options = options || {};
-        if (!config || !config.projectId || !config.keyFilename) {
-            throw new Error("Configuration object is invalid, please verify that object has `projectId` and `keyFilename` fields.");
+        if (!config || !config.projectId || !config.keyFilename && !config.credentials) {
+            throw new Error("Configuration object is invalid.");
+        }
+        if (config.credentials) {
+          // Reacon \n cause original private key has it.
+          config.credentials.private_key = config.credentials.private_key.replace(/\\n/g, "\n");
         }
         this.bucket = options.bucket;
         this.storage = gcsstorage(config);

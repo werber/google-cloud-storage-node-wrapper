@@ -10,14 +10,20 @@ const fs = require("fs");
 const path = require("path");
 const logger = console.log.bind(console);
 const TEST_TIMEOUT = 30000;
+const keyFile = require("../key.json");
 const gcsConfig = {
-    projectId: "testrtc-prod",
-    keyFilename: path.resolve(__dirname, "../key.json")
+    projectId: process.env["GCS_CONFIIG_PROJECT"],
+    credentials: {
+      client_email: process.env["GCS_CONFIIG_CLIENT_EMAIL"],
+      private_key: process.env["GCS_CONFIIG_PRIVATE_KEY"]
+    }
 };
+
 const gcsOptions = {
     loggingFunction: logger,
     bucket: "gcs-client-lib-testing"
 };
+
 const gcsWrapper = new GoogleCloudStorage(gcsConfig, gcsOptions);
 
 describe("Google Cloud Storage Wrapper", () => {
