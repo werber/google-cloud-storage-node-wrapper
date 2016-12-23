@@ -51,8 +51,7 @@ class GoogleCloudStorage implements IStorage {
         if (!config || !config.projectId || !config.keyFilename && !config.credentials) {
             throw new Error("Configuration object is invalid.");
         }
-        if (config.credentials) {
-          // Reacon \n cause original private key has it.
+        if (config.credentials && config.credentials.private_key) {
           config.credentials.private_key = config.credentials.private_key.replace(/\\n/g, "\n");
         }
         this.bucket = options.bucket;
