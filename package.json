@@ -1,6 +1,6 @@
 {
   "name": "google-cloud-storage-node-wrapper",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "GCS wrapper for managing files.",
   "main": "index.js",
   "types": "./typings/index.d.ts",
@@ -16,7 +16,7 @@
     "into-stream": "^3.0.0"
   },
   "engines": {
-    "node": ">=4.4.3"
+    "node": ">=6.9.2"
   },
   "devDependencies": {
     "@types/node": "^6.0.48",
