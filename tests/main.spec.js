@@ -24,8 +24,13 @@ const gcsOptions = {
 const gcsWrapper = new GoogleCloudStorage(gcsConfig, gcsOptions);
 describe("Google Cloud Storage Wrapper", () => {
     before(function (done) {
-        gcsstorage(gcsConfig).bucket(gcsOptions.bucket).deleteFiles().then(() => {
+        gcsstorage(gcsConfig)
+            .bucket(gcsOptions.bucket)
+            .deleteFiles()
+            .then(() => {
             done();
+        }).catch((error) => {
+            console.log('Failed on cleaning bucket with reason, ', error);
         });
         this.timeout(TEST_TIMEOUT);
     });
