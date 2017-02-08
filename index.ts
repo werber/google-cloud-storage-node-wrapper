@@ -4,6 +4,7 @@ const gcsstorage = require("@google-cloud/storage");
 const stream = require("stream");
 const intoStream = require("into-stream");
 const fs = require("fs");
+import retry from "async-retry";
 
 interface IStorage {
     save(gcsPath: string, file: string): Promise<any>;
@@ -124,11 +125,12 @@ class GoogleCloudStorage implements IStorage {
             resumable: false,
             validation: "crc32c"
         };
-        let urlToFile = (options.getURL) ? this.buildUrlToFile(gcsPath) : null;
-        let rStream = this.transformToStream(data);
-        let gcsStream = aFile.createWriteStream(gcsUploadOptions);
 
         return this.tryToDoOrFail(() => {
+            let urlToFile = (options.getURL) ? this.buildUrlToFile(gcsPath) : null;
+            let rStream = this.transformToStream(data);
+            let gcsStream = aFile.createWriteStream(gcsUploadOptions);
+
             return this.uploadFile(rStream, gcsStream, urlToFile);
         });
     }
@@ -205,21 +207,15 @@ class GoogleCloudStorage implements IStorage {
     }
 
     async tryToDoOrFail(asyncOperation) {
-        for (let retriesCount = this.retriesCount; retriesCount > 0; retriesCount--) {
-            try {
-                let rusultOfAsyncOperation = await asyncOperation();
-                return rusultOfAsyncOperation;
-            } catch (error) {
-                this.log(`Error while saving blob: ${error}. Retries left: ${retriesCount}`);
-                await new Promise((resolve) => {
-                    setTimeout(resolve, this.retryInterval);
-                });
-                // Last try failed.
-                if (retriesCount === 1) {
-                    throw new Error(error);
-                }
-            }
-        }
+        let counter = this.retriesCount;
+        return await retry(asyncOperation, {
+          retries: 3,
+          minTimeout: 1000,
+          onRetry: (error) => {
+            counter--;
+            this.log(`Error while saving blob: ${error}. Retries left: ${counter}`);
+          }
+        });
     }
 }
 

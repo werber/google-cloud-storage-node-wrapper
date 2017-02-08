@@ -4,13 +4,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
         function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
         function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments)).next());
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
 const gcsstorage = require("@google-cloud/storage");
 const stream = require("stream");
 const intoStream = require("into-stream");
 const fs = require("fs");
+const async_retry_1 = require("async-retry");
 class GoogleCloudStorage {
     constructor(config, options) {
         options = options || {};
@@ -91,10 +92,10 @@ class GoogleCloudStorage {
                 resumable: false,
                 validation: "crc32c"
             };
-            let urlToFile = (options.getURL) ? this.buildUrlToFile(gcsPath) : null;
-            let rStream = this.transformToStream(data);
-            let gcsStream = aFile.createWriteStream(gcsUploadOptions);
             return this.tryToDoOrFail(() => {
+                let urlToFile = (options.getURL) ? this.buildUrlToFile(gcsPath) : null;
+                let rStream = this.transformToStream(data);
+                let gcsStream = aFile.createWriteStream(gcsUploadOptions);
                 return this.uploadFile(rStream, gcsStream, urlToFile);
             });
         });
@@ -174,21 +175,15 @@ class GoogleCloudStorage {
     }
     tryToDoOrFail(asyncOperation) {
         return __awaiter(this, void 0, void 0, function* () {
-            for (let retriesCount = this.retriesCount; retriesCount > 0; retriesCount--) {
-                try {
-                    let rusultOfAsyncOperation = yield asyncOperation();
-                    return rusultOfAsyncOperation;
+            let counter = this.retriesCount;
+            return yield async_retry_1.default(asyncOperation, {
+                retries: 3,
+                minTimeout: 1000,
+                onRetry: (error) => {
+                    counter--;
+                    this.log(`Error while saving blob: ${error}. Retries left: ${counter}`);
                 }
-                catch (error) {
-                    this.log(`Error while saving blob: ${error}. Retries left: ${retriesCount}`);
-                    yield new Promise((resolve) => {
-                        setTimeout(resolve, this.retryInterval);
-                    });
-                    if (retriesCount === 1) {
-                        throw new Error(error);
-                    }
-                }
-            }
+            });
         });
     }
 }

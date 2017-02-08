@@ -12,6 +12,7 @@
   "license": "MIT",
   "dependencies": {
     "@google-cloud/storage": "0.6.0",
+    "async-retry": "^0.2.1",
     "fast-crc32c": "1.0.4",
     "into-stream": "^3.0.0"
   },
