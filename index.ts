@@ -31,6 +31,7 @@ interface Ioptions {
     bucket?: string;
     retriesCount?: number;
     retryInterval?: number;
+    maxRetryTimeout?: number;
 }
 
 interface IFile {
@@ -46,6 +47,7 @@ class GoogleCloudStorage implements IStorage {
     bucket: string;
     retriesCount: number;
     retryInterval: number;
+    maxRetryTimeout: number;
 
     constructor(config: IgscConfig, options: Ioptions) {
         options = options || {};
@@ -60,6 +62,7 @@ class GoogleCloudStorage implements IStorage {
         this.log = options.loggingFunction || (() => null);
         this.retriesCount = options.retriesCount || 3;
         this.retryInterval = options.retryInterval || 500;
+        this.maxRetryTimeout = options.maxRetryTimeout || 5000;
     }
 
     private getRemoteFileInstance (gcsPath: string): any {
@@ -206,9 +209,27 @@ class GoogleCloudStorage implements IStorage {
         return intoStream(buffer);
     }
 
+    private async delay(timeout) {
+        return new Promise((resolve, reject) => {
+            setTimeout(function() {
+                reject(new Error('Promise did not get final state in max retry timeout.'));
+            }, timeout);
+        });
+    }
+
+    /**
+    *   If promise does not get final state in max retry timeout, reject it with timeout error.
+    */
+    private async limitPromiseTime (asyncOperation) {
+      return Promise.race([
+        asyncOperation(),
+        this.delay(this.maxRetryTimeout)
+      ]);
+    }
+
     async tryToDoOrFail(asyncOperation) {
         let counter = this.retriesCount;
-        return await retry(asyncOperation, {
+        return await retry(this.limitPromiseTime.bind(this, asyncOperation), {
           retries: 3,
           minTimeout: 1000,
           onRetry: (error) => {

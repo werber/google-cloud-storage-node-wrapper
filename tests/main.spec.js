@@ -2,6 +2,7 @@
 const gcsstorage = require("@google-cloud/storage");
 const GoogleCloudStorage = require("../index");
 const chai = require("chai");
+const expect = chai.expect;
 const assert = chai.assert;
 const bufferEqual = require("buffer-equal");
 const request = require("request");
@@ -190,6 +191,24 @@ describe("Google Cloud Storage Wrapper", () => {
                 });
             }).catch((error) => {
                 assert.ok(error, "Error is not empty");
+                done();
+            });
+        });
+        it("should fail on tryToDoOrFail if async operation does not get final state for max timeout time.", function (done) {
+            this.timeout(TEST_TIMEOUT);
+            let numberOfCall = 0;
+            let errorMesssage = new Error("No internet connection.");
+            gcsWrapper.tryToDoOrFail(() => {
+                return new Promise((resolve, reject) => {
+                    setTimeout(function () {
+                        reject(errorMesssage);
+                    }, 6000);
+                });
+            }).catch((error) => {
+                function throwError() {
+                    throw new Error(error);
+                }
+                expect(throwError).to.throw("Promise did not get final state in max retry timeout.");
                 done();
             });
         });

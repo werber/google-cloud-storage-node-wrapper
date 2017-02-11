@@ -4,7 +4,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
         function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
         function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
+        step((generator = generator.apply(thisArg, _arguments)).next());
     });
 };
 const gcsstorage = require("@google-cloud/storage");
@@ -26,6 +26,7 @@ class GoogleCloudStorage {
         this.log = options.loggingFunction || (() => null);
         this.retriesCount = options.retriesCount || 3;
         this.retryInterval = options.retryInterval || 500;
+        this.maxRetryTimeout = options.maxRetryTimeout || 5000;
     }
     getRemoteFileInstance(gcsPath) {
         return this.storage.bucket(this.bucket).file(gcsPath);
@@ -173,10 +174,27 @@ class GoogleCloudStorage {
     convertBufferToStream(buffer) {
         return intoStream(buffer);
     }
+    delay(timeout) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                setTimeout(function () {
+                    reject(new Error('Promise did not get final state in max retry timeout.'));
+                }, timeout);
+            });
+        });
+    }
+    limitPromiseTime(asyncOperation) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return Promise.race([
+                asyncOperation(),
+                this.delay(this.maxRetryTimeout)
+            ]);
+        });
+    }
     tryToDoOrFail(asyncOperation) {
         return __awaiter(this, void 0, void 0, function* () {
             let counter = this.retriesCount;
-            return yield async_retry_1.default(asyncOperation, {
+            return yield async_retry_1.default(this.limitPromiseTime.bind(this, asyncOperation), {
                 retries: 3,
                 minTimeout: 1000,
                 onRetry: (error) => {
