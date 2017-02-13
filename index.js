@@ -82,6 +82,8 @@ class GoogleCloudStorage {
     save(gcsPath, data, options) {
         return __awaiter(this, void 0, void 0, function* () {
             options = options || {};
+            let rStream = null;
+            let gcsStream = null;
             let aFile = this.getRemoteFileInstance(gcsPath);
             let gcsUploadOptions = {
                 gzip: options.compress === true,
@@ -95,9 +97,16 @@ class GoogleCloudStorage {
             };
             return this.tryToDoOrFail(() => {
                 let urlToFile = (options.getURL) ? this.buildUrlToFile(gcsPath) : null;
-                let rStream = this.transformToStream(data);
-                let gcsStream = aFile.createWriteStream(gcsUploadOptions);
+                rStream = this.transformToStream(data);
+                gcsStream = aFile.createWriteStream(gcsUploadOptions);
                 return this.uploadFile(rStream, gcsStream, urlToFile);
+            }, {
+                onRetry: function (error) {
+                    if (rStream && gcsStream) {
+                        rStream.unpipe(gcsStream);
+                        gcsStream.end();
+                    }
+                }
             });
         });
     }
@@ -191,13 +200,16 @@ class GoogleCloudStorage {
             ]);
         });
     }
-    tryToDoOrFail(asyncOperation) {
+    tryToDoOrFail(asyncOperation, options) {
         return __awaiter(this, void 0, void 0, function* () {
             let counter = this.retriesCount;
             return yield async_retry_1.default(this.limitPromiseTime.bind(this, asyncOperation), {
                 retries: 3,
                 minTimeout: 1000,
                 onRetry: (error) => {
+                    if (options && options.onRetry) {
+                        options.onRetry(error);
+                    }
                     counter--;
                     this.log(`Error while saving blob: ${error}. Retries left: ${counter}`);
                 }

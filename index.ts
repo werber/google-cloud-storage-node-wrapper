@@ -117,6 +117,8 @@ class GoogleCloudStorage implements IStorage {
 
     async save(gcsPath: string, data: any, options?: any): Promise<any> {
         options = options || {};
+        let rStream = null
+        let gcsStream = null
         let aFile = this.getRemoteFileInstance(gcsPath);
         let gcsUploadOptions = {
             gzip: options.compress === true,
@@ -131,10 +133,16 @@ class GoogleCloudStorage implements IStorage {
 
         return this.tryToDoOrFail(() => {
             let urlToFile = (options.getURL) ? this.buildUrlToFile(gcsPath) : null;
-            let rStream = this.transformToStream(data);
-            let gcsStream = aFile.createWriteStream(gcsUploadOptions);
-
+            rStream = this.transformToStream(data);
+            gcsStream = aFile.createWriteStream(gcsUploadOptions);
             return this.uploadFile(rStream, gcsStream, urlToFile);
+        }, {
+          onRetry: function (error) {
+            if (rStream && gcsStream) {
+              rStream.unpipe(gcsStream);
+              gcsStream.end();
+            }
+          }
         });
     }
 
@@ -227,12 +235,15 @@ class GoogleCloudStorage implements IStorage {
       ]);
     }
 
-    async tryToDoOrFail(asyncOperation) {
+    async tryToDoOrFail(asyncOperation, options?) {
         let counter = this.retriesCount;
         return await retry(this.limitPromiseTime.bind(this, asyncOperation), {
           retries: 3,
           minTimeout: 1000,
           onRetry: (error) => {
+            if (options && options.onRetry) {
+                options.onRetry(error)
+            }
             counter--;
             this.log(`Error while saving blob: ${error}. Retries left: ${counter}`);
           }
