@@ -4,6 +4,7 @@ const gcsstorage = require("@google-cloud/storage");
 const stream = require("stream");
 const intoStream = require("into-stream");
 const fs = require("fs");
+import retry from "async-retry";
 
 interface IStorage {
     save(gcsPath: string, file: string): Promise<any>;
@@ -30,6 +31,7 @@ interface Ioptions {
     bucket?: string;
     retriesCount?: number;
     retryInterval?: number;
+    maxRetryTimeout?: number;
 }
 
 interface IFile {
@@ -45,6 +47,7 @@ class GoogleCloudStorage implements IStorage {
     bucket: string;
     retriesCount: number;
     retryInterval: number;
+    maxRetryTimeout: number;
 
     constructor(config: IgscConfig, options: Ioptions) {
         options = options || {};
@@ -59,6 +62,7 @@ class GoogleCloudStorage implements IStorage {
         this.log = options.loggingFunction || (() => null);
         this.retriesCount = options.retriesCount || 3;
         this.retryInterval = options.retryInterval || 500;
+        this.maxRetryTimeout = options.maxRetryTimeout || 5000;
     }
 
     private getRemoteFileInstance (gcsPath: string): any {
@@ -113,6 +117,8 @@ class GoogleCloudStorage implements IStorage {
 
     async save(gcsPath: string, data: any, options?: any): Promise<any> {
         options = options || {};
+        let rStream = null
+        let gcsStream = null
         let aFile = this.getRemoteFileInstance(gcsPath);
         let gcsUploadOptions = {
             gzip: options.compress === true,
@@ -124,12 +130,19 @@ class GoogleCloudStorage implements IStorage {
             resumable: false,
             validation: "crc32c"
         };
-        let urlToFile = (options.getURL) ? this.buildUrlToFile(gcsPath) : null;
-        let rStream = this.transformToStream(data);
-        let gcsStream = aFile.createWriteStream(gcsUploadOptions);
 
         return this.tryToDoOrFail(() => {
+            let urlToFile = (options.getURL) ? this.buildUrlToFile(gcsPath) : null;
+            rStream = this.transformToStream(data);
+            gcsStream = aFile.createWriteStream(gcsUploadOptions);
             return this.uploadFile(rStream, gcsStream, urlToFile);
+        }, {
+          onRetry: function (error) {
+            if (rStream && gcsStream) {
+              rStream.unpipe(gcsStream);
+              gcsStream.end();
+            }
+          }
         });
     }
 
@@ -204,22 +217,37 @@ class GoogleCloudStorage implements IStorage {
         return intoStream(buffer);
     }
 
-    async tryToDoOrFail(asyncOperation) {
-        for (let retriesCount = this.retriesCount; retriesCount > 0; retriesCount--) {
-            try {
-                let rusultOfAsyncOperation = await asyncOperation();
-                return rusultOfAsyncOperation;
-            } catch (error) {
-                this.log(`Error while saving blob: ${error}. Retries left: ${retriesCount}`);
-                await new Promise((resolve) => {
-                    setTimeout(resolve, this.retryInterval);
-                });
-                // Last try failed.
-                if (retriesCount === 1) {
-                    throw new Error(error);
-                }
+    private async delay(timeout) {
+        return new Promise((resolve, reject) => {
+            setTimeout(function() {
+                reject(new Error('Promise did not get final state in max retry timeout.'));
+            }, timeout);
+        });
+    }
+
+    /**
+    *   If promise does not get final state in max retry timeout, reject it with timeout error.
+    */
+    private async limitPromiseTime (asyncOperation) {
+      return Promise.race([
+        asyncOperation(),
+        this.delay(this.maxRetryTimeout)
+      ]);
+    }
+
+    async tryToDoOrFail(asyncOperation, options?) {
+        let counter = this.retriesCount;
+        return await retry(this.limitPromiseTime.bind(this, asyncOperation), {
+          retries: 3,
+          minTimeout: 1000,
+          onRetry: (error) => {
+            if (options && options.onRetry) {
+                options.onRetry(error)
             }
-        }
+            counter--;
+            this.log(`Error while saving blob: ${error}. Retries left: ${counter}`);
+          }
+        });
     }
 }
 

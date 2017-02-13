@@ -11,6 +11,7 @@ const gcsstorage = require("@google-cloud/storage");
 const stream = require("stream");
 const intoStream = require("into-stream");
 const fs = require("fs");
+const async_retry_1 = require("async-retry");
 class GoogleCloudStorage {
     constructor(config, options) {
         options = options || {};
@@ -25,6 +26,7 @@ class GoogleCloudStorage {
         this.log = options.loggingFunction || (() => null);
         this.retriesCount = options.retriesCount || 3;
         this.retryInterval = options.retryInterval || 500;
+        this.maxRetryTimeout = options.maxRetryTimeout || 5000;
     }
     getRemoteFileInstance(gcsPath) {
         return this.storage.bucket(this.bucket).file(gcsPath);
@@ -80,6 +82,8 @@ class GoogleCloudStorage {
     save(gcsPath, data, options) {
         return __awaiter(this, void 0, void 0, function* () {
             options = options || {};
+            let rStream = null;
+            let gcsStream = null;
             let aFile = this.getRemoteFileInstance(gcsPath);
             let gcsUploadOptions = {
                 gzip: options.compress === true,
@@ -91,11 +95,18 @@ class GoogleCloudStorage {
                 resumable: false,
                 validation: "crc32c"
             };
-            let urlToFile = (options.getURL) ? this.buildUrlToFile(gcsPath) : null;
-            let rStream = this.transformToStream(data);
-            let gcsStream = aFile.createWriteStream(gcsUploadOptions);
             return this.tryToDoOrFail(() => {
+                let urlToFile = (options.getURL) ? this.buildUrlToFile(gcsPath) : null;
+                rStream = this.transformToStream(data);
+                gcsStream = aFile.createWriteStream(gcsUploadOptions);
                 return this.uploadFile(rStream, gcsStream, urlToFile);
+            }, {
+                onRetry: function (error) {
+                    if (rStream && gcsStream) {
+                        rStream.unpipe(gcsStream);
+                        gcsStream.end();
+                    }
+                }
             });
         });
     }
@@ -172,23 +183,37 @@ class GoogleCloudStorage {
     convertBufferToStream(buffer) {
         return intoStream(buffer);
     }
-    tryToDoOrFail(asyncOperation) {
+    delay(timeout) {
         return __awaiter(this, void 0, void 0, function* () {
-            for (let retriesCount = this.retriesCount; retriesCount > 0; retriesCount--) {
-                try {
-                    let rusultOfAsyncOperation = yield asyncOperation();
-                    return rusultOfAsyncOperation;
-                }
-                catch (error) {
-                    this.log(`Error while saving blob: ${error}. Retries left: ${retriesCount}`);
-                    yield new Promise((resolve) => {
-                        setTimeout(resolve, this.retryInterval);
-                    });
-                    if (retriesCount === 1) {
-                        throw new Error(error);
+            return new Promise((resolve, reject) => {
+                setTimeout(function () {
+                    reject(new Error('Promise did not get final state in max retry timeout.'));
+                }, timeout);
+            });
+        });
+    }
+    limitPromiseTime(asyncOperation) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return Promise.race([
+                asyncOperation(),
+                this.delay(this.maxRetryTimeout)
+            ]);
+        });
+    }
+    tryToDoOrFail(asyncOperation, options) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let counter = this.retriesCount;
+            return yield async_retry_1.default(this.limitPromiseTime.bind(this, asyncOperation), {
+                retries: 3,
+                minTimeout: 1000,
+                onRetry: (error) => {
+                    if (options && options.onRetry) {
+                        options.onRetry(error);
                     }
+                    counter--;
+                    this.log(`Error while saving blob: ${error}. Retries left: ${counter}`);
                 }
-            }
+            });
         });
     }
 }
