@@ -62,7 +62,7 @@ class GoogleCloudStorage implements IStorage {
         this.log = options.loggingFunction || (() => null);
         this.retriesCount = options.retriesCount || 3;
         this.retryInterval = options.retryInterval || 500;
-        this.maxRetryTimeout = options.maxRetryTimeout || 5000;
+        this.maxRetryTimeout = options.maxRetryTimeout || 90000;
     }
 
     private getRemoteFileInstance (gcsPath: string): any {

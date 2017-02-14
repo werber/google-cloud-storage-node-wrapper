@@ -26,7 +26,7 @@ class GoogleCloudStorage {
         this.log = options.loggingFunction || (() => null);
         this.retriesCount = options.retriesCount || 3;
         this.retryInterval = options.retryInterval || 500;
-        this.maxRetryTimeout = options.maxRetryTimeout || 5000;
+        this.maxRetryTimeout = options.maxRetryTimeout || 90000;
     }
     getRemoteFileInstance(gcsPath) {
         return this.storage.bucket(this.bucket).file(gcsPath);
