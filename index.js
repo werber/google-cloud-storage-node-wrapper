@@ -152,7 +152,11 @@ class GoogleCloudStorage {
             return this.tryToDoOrFail(() => {
                 return this.getRemoteFileInstance(gcsPath)
                     .download()
-                    .then((data) => data[0]);
+                    .then((data) => data[0])
+                    .catch((error) => {
+                    this.log(`'getRemoteFileInstance' failed with the reason, ${error}`);
+                    throw new Error(error);
+                });
             });
         });
     }
@@ -182,8 +186,9 @@ class GoogleCloudStorage {
     delay(timeout) {
         return __awaiter(this, void 0, void 0, function* () {
             return new Promise((resolve, reject) => {
-                setTimeout(function () {
-                    reject(new Error('Promise did not get final state in max retry timeout.'));
+                setTimeout(() => {
+                    this.log(`DELAY - ${timeout}, happend at ${new Date().toISOString()}`);
+                    reject(new Error("Promise did not get final state in max retry timeout."));
                 }, timeout);
             });
         });
@@ -199,6 +204,7 @@ class GoogleCloudStorage {
     tryToDoOrFail(asyncOperation, options) {
         return __awaiter(this, void 0, void 0, function* () {
             let counter = this.retriesCount;
+            this.log(`Async operation started at ${new Date().toISOString()}, retries left on start ${this.retriesCount}`);
             return yield async_retry_1.default(this.limitPromiseTime.bind(this, asyncOperation), {
                 retries: 3,
                 minTimeout: 1000,
@@ -207,7 +213,7 @@ class GoogleCloudStorage {
                         options.onRetry(error);
                     }
                     counter--;
-                    this.log(`Error while saving blob: ${error}. Retries left: ${counter}`);
+                    this.log(`Error while saving blob: '${error}'. Retries left: ${counter}, happend at ${new Date().toISOString()}`);
                 }
             });
         });

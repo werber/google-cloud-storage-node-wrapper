@@ -185,7 +185,11 @@ class GoogleCloudStorage implements IStorage {
       return this.tryToDoOrFail(() => {
         return this.getRemoteFileInstance(gcsPath)
                    .download()
-                   .then((data) => data[0]);
+                   .then((data) => data[0])
+                   .catch((error) => {
+                     this.log(`'getRemoteFileInstance' failed with the reason, ${error}`);
+                     throw new Error(error)
+                   });
       });
     }
 
@@ -215,8 +219,9 @@ class GoogleCloudStorage implements IStorage {
 
     private async delay(timeout) {
         return new Promise((resolve, reject) => {
-            setTimeout(function() {
-                reject(new Error('Promise did not get final state in max retry timeout.'));
+            setTimeout(() => {
+                this.log(`DELAY - ${timeout}, happend at ${new Date().toISOString()}`);
+                reject(new Error("Promise did not get final state in max retry timeout."));
             }, timeout);
         });
     }
@@ -233,6 +238,7 @@ class GoogleCloudStorage implements IStorage {
 
     async tryToDoOrFail(asyncOperation, options?) {
         let counter = this.retriesCount;
+        this.log(`Async operation started at ${new Date().toISOString()}, retries left on start ${this.retriesCount}`);
         return await retry(this.limitPromiseTime.bind(this, asyncOperation), {
           retries: 3,
           minTimeout: 1000,
@@ -241,7 +247,7 @@ class GoogleCloudStorage implements IStorage {
                 options.onRetry(error);
             }
             counter--;
-            this.log(`Error while saving blob: ${error}. Retries left: ${counter}`);
+            this.log(`Error while saving blob: '${error}'. Retries left: ${counter}, happend at ${new Date().toISOString()}`);
           }
         });
     }
