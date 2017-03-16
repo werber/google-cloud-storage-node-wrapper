@@ -22,7 +22,8 @@ const gcsConfig = {
 
 const gcsOptions = {
     loggingFunction: logger,
-    bucket: "gcs-client-lib-testing"
+    bucket: "gcs-client-lib-testing",
+    maxRetryTimeout: 5000
 };
 
 const gcsWrapper = new GoogleCloudStorage(gcsConfig, gcsOptions);
