@@ -4,7 +4,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
         function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
         function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments)).next());
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
 const gcsstorage = require("@google-cloud/storage");
@@ -129,25 +129,21 @@ class GoogleCloudStorage {
     }
     read(gcsPath, writableStream) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.tryToDoOrFail(() => {
-                return this.readAsBuffer(gcsPath).then((buffer) => {
-                    return new Promise((resolve, reject) => {
-                        intoStream(buffer)
-                            .pipe(writableStream)
-                            .on("finish", resolve)
-                            .on("error", reject);
-                    });
+            return this.readAsBuffer(gcsPath).then((buffer) => {
+                return new Promise((resolve, reject) => {
+                    intoStream(buffer)
+                        .pipe(writableStream)
+                        .on("finish", resolve)
+                        .on("error", reject);
                 });
             });
         });
     }
     readAsObject(gcsPath, options) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.tryToDoOrFail(() => {
-                return this.readAsBuffer(gcsPath, options).then((buffer) => {
-                    let json = buffer.toString("utf8");
-                    return JSON.parse(json);
-                });
+            return this.readAsBuffer(gcsPath, options).then((buffer) => {
+                let json = buffer.toString("utf8");
+                return JSON.parse(json);
             });
         });
     }

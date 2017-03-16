@@ -164,7 +164,6 @@ class GoogleCloudStorage implements IStorage {
     }
 
     async read (gcsPath: string, writableStream: any): Promise<any> {
-      return this.tryToDoOrFail(() => {
         return this.readAsBuffer(gcsPath).then((buffer) => {
           return new Promise ((resolve, reject) => {
             intoStream(buffer)
@@ -173,15 +172,12 @@ class GoogleCloudStorage implements IStorage {
                     .on("error", reject);
             });
         });
-      });
     }
 
     async readAsObject(gcsPath: string, options?: any): Promise<Object> {
-      return this.tryToDoOrFail(() => {
-        return this.readAsBuffer(gcsPath, options).then((buffer) => {
-            let json = buffer.toString("utf8");
-            return JSON.parse(json);
-        });
+      return this.readAsBuffer(gcsPath, options).then((buffer) => {
+          let json = buffer.toString("utf8");
+          return JSON.parse(json);
       });
     }
 
