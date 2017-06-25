@@ -2,15 +2,16 @@
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator.throw(value)); } catch (e) { reject(e); } }
         function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
+        step((generator = generator.apply(thisArg, _arguments)).next());
     });
 };
 const gcsstorage = require("@google-cloud/storage");
 const stream = require("stream");
 const intoStream = require("into-stream");
 const fs = require("fs");
+const zlib = require("zlib");
 const async_retry_1 = require("async-retry");
 class GoogleCloudStorage {
     constructor(config, options) {
@@ -37,6 +38,8 @@ class GoogleCloudStorage {
                 prefix: prefix || "",
                 autoPaginate: false
             };
+            // Expand query by additional parameters.
+            // DOCS: https://googlecloudplatform.github.io/google-cloud-node/#/docs/storage/0.5.0/storage/bucket?method=getFiles
             if (queryOptions) {
                 for (let option in queryOptions) {
                     query[option] = queryOptions[option];
@@ -143,7 +146,15 @@ class GoogleCloudStorage {
         return __awaiter(this, void 0, void 0, function* () {
             return this.readAsBuffer(gcsPath, options).then((buffer) => {
                 let json = buffer.toString("utf8");
-                return JSON.parse(json);
+                try {
+                    return JSON.parse(json);
+                }
+                catch (e) {
+                    // Let's suppose that if not JSON then zipped file -> testRTC specific check
+                    // TODO: add check for zipped format
+                    let unzipped = zlib.unzipSync(buffer);
+                    return JSON.parse(unzipped.toString('utf8'));
+                }
             });
         });
     }
@@ -193,6 +204,9 @@ class GoogleCloudStorage {
             });
         });
     }
+    /**
+    *   If promise does not get final state in max retry timeout, reject it with timeout error.
+    */
     limitPromiseTime(asyncOperation) {
         return __awaiter(this, void 0, void 0, function* () {
             return Promise.race([

@@ -4,6 +4,7 @@ const gcsstorage = require("@google-cloud/storage");
 const stream = require("stream");
 const intoStream = require("into-stream");
 const fs = require("fs");
+const zlib = require("zlib");
 import retry from "async-retry";
 
 interface IStorage {
@@ -177,7 +178,14 @@ class GoogleCloudStorage implements IStorage {
     async readAsObject(gcsPath: string, options?: any): Promise<Object> {
       return this.readAsBuffer(gcsPath, options).then((buffer) => {
           let json = buffer.toString("utf8");
-          return JSON.parse(json);
+          try {
+            return JSON.parse(json); 
+          } catch (e) {
+            // Let's suppose that if not JSON then zipped file -> testRTC specific check
+            // TODO: add check for zipped format
+            let unzipped = zlib.unzipSync(buffer);
+            return JSON.parse(unzipped.toString('utf8'));
+          }
       });
     }
 
